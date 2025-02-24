@@ -1,4 +1,8 @@
-# Ignore virtual environment
+#########################
+# Python
+#########################
+
+# Virtual environment
 venv/
 .env
 
@@ -20,78 +24,81 @@ dist/
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-# macOS and Windows system files
-.DS_Store
-Thumbs.db
+# mypy cache
+.mypy_cache/
 
-# VS Code settings and Python cache
-.vscode/
-*.swp
-*.swo
+# pytest cache
+.pytest_cache/
 
-# PyCharm IDE files
-.idea/
-*.iml
-
-# Ignore pip environment files
+# Pip environment logs
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Ignore pytest cache
-.pytest_cache/
 
-# Ignore coverage reports
-.coverage
-htmlcov/
-coverage.xml
+#########################
+# Node.js
+#########################
 
-# Ignore mypy cache
-.mypy_cache/
-
-# Ignore temporary files created by editors
-*~
-*.bak
-
-# Ignore Node.js dependencies and cache
+# Dependencies and caches
 node_modules/
 .npm/
 
-
-
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-.yarn/install-state.gz
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# NPM/Yarn debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# Yarn PnP
+.pnp
+.pnp.js
+.yarn/
+.yarn/install-state.gz
+
+
+#########################
+# Next.js
+#########################
+
+# Next build output
+.next/
+out/
+
+# Production build (sometimes also used for Python packaging, but safe to keep)
+build/
+
+
+#########################
+# General
+#########################
+
+# macOS and Windows system files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# Temporary files
+*~
+*.bak
+
+# Coverage reports
+coverage/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local environment files
 .env*.local
 .env
 
-# vercel
+# Vercel deployment config
 .vercel
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
