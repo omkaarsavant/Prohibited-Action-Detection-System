@@ -12,9 +12,9 @@ from PIL import Image
 app = Flask(__name__)
 
 # Initialize MTCNN for face detection
-mtcnn = MTCNN(keep_all=True, device='cuda')  # Change 'cpu' to 'cuda' for GPU
+mtcnn = MTCNN(keep_all=True, device='cpu')  # Change 'cpu' to 'cuda' for GPU
 # Initialize Inception ResNet for face recognition
-model = InceptionResnetV1(pretrained='vggface2').eval().to('cuda')  # Change to 'cuda' if using GPU
+model = InceptionResnetV1(pretrained='vggface2').eval().to('cpu')  # Change to 'cuda' if using GPU
 
 # Path to store the embeddings of known faces
 EMBEDDINGS_FILE = 'Models/known_faces_embeddings.pkl'
@@ -59,7 +59,7 @@ def recognize_faces(frame):
         for box in boxes:
             face = img[int(box[1]):int(box[3]), int(box[0]):int(box[2])]
             face = cv2.resize(face, (160, 160))
-            face = torch.tensor(face).permute(2, 0, 1).unsqueeze(0).float().to('cuda')
+            face = torch.tensor(face).permute(2, 0, 1).unsqueeze(0).float().to('cpu')
             embedding = model(face).detach().cpu().numpy()
             name = "Unknown"
             max_similarity = 0
@@ -91,3 +91,4 @@ def recognize():
 
 if __name__ == '__main__':
     app.run(debug=True)
+    

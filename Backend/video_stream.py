@@ -9,7 +9,7 @@ from flask import Response
 
 
 # Initialize MTCNN for face detection
-mtcnn = MTCNN(keep_all=True, device='cuda')  # Change 'cpu' to 'cuda' for GPU
+mtcnn = MTCNN(keep_all=True, device='cpu')  # Change 'cpu' to 'cuda' for GPU
 # Initialize Inception ResNet for face recognition
 model = InceptionResnetV1(pretrained='vggface2').eval().to('cpu')  # Change to 'cuda' if using GPU
 

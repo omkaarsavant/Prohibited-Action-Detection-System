@@ -2,7 +2,19 @@ from flask import Flask, render_template, Response
 import cv2
 from recognize_faces_multiple import recognize_faces
 
+from flask import Flask, request, jsonify, send_file
+from pymongo import MongoClient
+import gridfs
+from io import BytesIO
+
+
 app = Flask(__name__)
+
+# Connect to MongoDB
+client = MongoClient("mongodb://localhost:27017/")
+db = client["UserDatabase"]
+fs = gridfs.GridFS(db)
+users_collection = db["users"]
 
 @app.route('/')
 def index():
@@ -34,3 +46,4 @@ def video_feed():
 
 if __name__ == "__main__":
     app.run(debug=True)
+    
