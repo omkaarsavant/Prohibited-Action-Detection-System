@@ -1,0 +1,95 @@
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>
+   Surveillance Dashboard
+  </title>
+  <script src="https://cdn.tailwindcss.com">
+  </script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
+ </head>
+ <body class="bg-gray-900 text-white">
+  <div class="flex h-screen">
+   <!-- Sidebar -->
+   <div class="w-1/4 bg-gray-800 p-4">
+    <div class="mb-4">
+     <h3 class="text-sm font-semibold mb-2">
+      Search Prisoner
+     </h3>
+     <input class="w-full p-2 bg-gray-700 rounded" placeholder="Enter prisoner ID" type="text"/>
+    </div>
+    <div id="prisoner-details" class="mt-4">
+     <!-- Prisoner details will be fetched and displayed here -->
+    </div>
+   </div>
+   <!-- Main Content -->
+   <div class="flex-1 bg-gray-900 p-4">
+    <div class="flex justify-between items-center mb-4">
+     <h1 class="text-xl font-semibold">
+      Surveillance Camera
+     </h1>
+     <div class="text-sm text-gray-400">
+      Detection Level:
+      <span class="text-white">
+       High
+      </span>
+     </div>
+    </div>
+    <div class="relative bg-gray-700 h-full">
+     <img alt="Video Stream" class="w-full h-full object-cover" src="http://localhost:5000/action-detection"/>
+    </div>
+   </div>
+  </div>
+  <script>
+   // JavaScript to handle search and fetch prisoner details
+   document.querySelector('input').addEventListener('input', function() {
+     const prisonerId = this.value;
+     const prisonerDetails = document.getElementById('prisoner-details');
+     if (prisonerId) {
+       // Simulate fetching prisoner details
+       prisonerDetails.innerHTML = `
+         <div class="flex items-center mb-4">
+           <img src="https://placehold.co/50x50" alt="Profile picture of a person" class="rounded-full w-12 h-12 mr-4">
+           <div>
+             <h2 class="text-lg font-semibold">John Doe</h2>
+             <p class="text-sm text-gray-400">ID: ${prisonerId}</p>
+           </div>
+         </div>
+         <div class="mb-4">
+           <h3 class="text-sm font-semibold mb-2">Status</h3>
+           <div class="flex items-center">
+             <span class="bg-green-500 w-3 h-3 rounded-full mr-2"></span>
+             <span>Active</span>
+           </div>
+         </div>
+       `;
+     } else {
+       prisonerDetails.innerHTML = '';
+     }
+   });
+  </script>
+  <!--"use client"
+
+import { useEffect } from 'react';
+
+const ActionDetection = () => {
+    useEffect(() => {
+        // You can add any additional functionality here if needed
+    }, []);
+
+    return (
+        <div className='flex items-center justify-center text-center flex-col h-screen gap-16'>
+            <h1>Face Recognition Video Stream</h1>
+            <img
+                src="http://localhost:5000/action-detection" // Adjust if needed
+                alt="Video Stream"
+                className='w-[800px] h-[700px]  '
+            />
+        </div>
+    );
+};
+
+export default ActionDetection;-->
+ </body>
+</html>
