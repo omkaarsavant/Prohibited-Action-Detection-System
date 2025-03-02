@@ -142,23 +142,29 @@ export function RegistrationForm() {
       alert("Submitting project");
       const formData = new FormData();
       formData.append("Name", values.Name);
-      formData.append("PrisonerNumber", values.PrisonerNumber);
+      formData.append("PrisonerNumber", values.PrisonerNumber); // Include PrisonerNumber
       formData.append("Age", values.Age);
       formData.append("Height", values.Height);
       formData.append("Weight", values.Weight);
       formData.append("Gender", values.Gender);
   
       values.FaceImages.forEach((file) => {
-        formData.append("FaceImages", file);
+        formData.append("FaceImages", file); // Use the key "FaceImages" for multiple files
       });
+  
+      console.log("FormData entries:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+      }
   
       const res = await axios.post('http://127.0.0.1:5000/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-  
       console.log("Response:", res.data);
+  
+      // Redirect or show success message
       alert("Registered Successfully");
       router.push('/'); // Example route
     } catch (error) {
