@@ -13,14 +13,14 @@ export function NavbarComp() {
 
         <ul className="flex items-center gap-8">
             <li className="cursor-pointer hover:text-gray-600 font-semibold hover:scale(125) transition-all">
-                <Link href="/video-feed">Face Detection</Link>
+                <Link href="/video-feed">Monitoring System</Link>
             </li>
             <li className="cursor-pointer hover:text-gray-600 hover:scale(125) font-semibold transition-all">
                 <Link href="/registration">Register Prisoner</Link>
             </li>
-            <li className="cursor-pointer hover:text-gray-600 hover:scale(125) font-semibold transition-all">
+            {/* <li className="cursor-pointer hover:text-gray-600 hover:scale(125) font-semibold transition-all">
                 <Link href="/action-detection">Action Detection</Link>
-            </li>
+            </li> */}
             {/* <li className="cursor-pointer hover:text-gray-600 hover:scale(125) font-semibold transition-all">
                 <Link href="/video-feed">
                     <Button>Login/Signup</Button>
