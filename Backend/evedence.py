@@ -29,6 +29,38 @@ SAVE_PATH = "SuspiciousFrames"
 
 os.makedirs(SAVE_PATH, exist_ok=True)  # Ensure directory exists
 
+
+# Initialize MTCNN for face detection
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+mtcnn = MTCNN(keep_all=True, device=device)
+face_model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
+
+# Initialize YOLOv8 for action detection
+action_model = YOLO('yolo11s-pose.pt')
+
+# Load XGBoost model for classification
+xgb_model = xgb.Booster()
+xgb_model.load_model('Models/trained_model.json')
+
+# Path to store the embeddings of known faces
+EMBEDDINGS_FILE = 'Models/known_faces_embeddings.pkl'
+
+# Load known faces
+def load_known_faces():
+    if os.path.exists(EMBEDDINGS_FILE):
+        with open(EMBEDDINGS_FILE, 'rb') as f:
+            known_faces = pickle.load(f)
+            for face in known_faces:
+                face['embeddings'] = [np.array(embedding) for embedding in face['embeddings']]
+            return known_faces
+    return []
+
+# Compare embeddings using cosine similarity
+def get_cosine_similarity(embedding1, embedding2):
+    if embedding1.size == 0 or embedding2.size == 0:
+        return float('inf')
+    return 1 - cosine(embedding1.flatten(), embedding2.flatten())
+
 # Process video stream
 def generate_frames():
     print("Generating")
@@ -106,7 +138,7 @@ def generate_frames():
                     prediction = xgb_model.predict(dmatrix)
                     binary_prediction = int(prediction > 0.5)
 
-                    if binary_prediction == 0:  # Suspicious
+                    if binary_prediction == 1:  # Suspicious
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                         cvzone.putTextRect(frame, "Suspicious", (x1, y1), 1, 1)
                         suspicious_count += 1  # Increment suspicious frame count
