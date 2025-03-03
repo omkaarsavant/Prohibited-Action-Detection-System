@@ -34,9 +34,11 @@ const video_feed = () => {
                 {/* Sidebar */}
                 <div className="w-1/4 bg-gray-800 p-4">
                     <div className="mb-4">
-                        <h3 className="text-sm font-semibold mb-2">
+                        <br></br>
+                    <h1 className="text-xl font-semibold">
                             Search Prisoner
-                        </h3>
+                        </h1>
+                        <br></br>
                         <input
                             className="w-full p-2 bg-gray-700 rounded"
                             placeholder="Enter prisoner ID"
@@ -46,7 +48,7 @@ const video_feed = () => {
                         />
                         <button
                             onClick={handleSearch}
-                            className="mt-2 bg-blue-500 text-white py-2 px-4 rounded"
+                            className="mt-2 bg-blue-500 text-white py-2 px-4 rounded "
                         >
                             Search
                         </button>
@@ -76,13 +78,12 @@ const video_feed = () => {
                 <div className="flex-1 bg-gray-900 p-4">
                     <div className="flex justify-between items-center mb-4">
                         <h1 className="text-xl font-semibold">
+                            <br></br>
                             Surveillance Camera
                         </h1>
-                        <div className="text-sm text-gray-400">
-                            Detection Level:
-                            <span className="text-white">
-                                High
-                            </span>
+                        <div className="flex justify-between items-center mb-4">
+                        <br></br>    
+                            Detection Level: High
                         </div>
                     </div>
                     <div className="relative bg-gray-700  flex justify-center items-center">

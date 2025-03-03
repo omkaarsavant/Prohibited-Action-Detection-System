@@ -1,3 +1,6 @@
+import time
+from collections import deque
+import cv2
 import os
 import cv2
 import torch
@@ -16,13 +19,6 @@ from flask_pymongo import PyMongo
 from werkzeug.utils import secure_filename
 from PIL import Image as PILImage
 import socket
-import time
-from collections import deque 
-app = Flask(__name__)
-CORS(app)
-
-app.config["MONGO_URI"] = "mongodb://localhost:27017/your_database_name"
-mongo = PyMongo(app)
 # Store timestamps of frames to maintain a rolling 15-second window
 frame_timestamps = deque()
 suspicious_count = 0
@@ -33,43 +29,9 @@ SAVE_PATH = "SuspiciousFrames"
 
 os.makedirs(SAVE_PATH, exist_ok=True)  # Ensure directory exists
 
-
-# Set the path for the images
-app.config['IMAGE_FOLDER'] = os.path.join(os.path.dirname(__file__), 'Images')
-os.makedirs(app.config['IMAGE_FOLDER'], exist_ok=True)  # Create image folder if it doesn't exist
-
-# Initialize MTCNN for face detection
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-mtcnn = MTCNN(keep_all=True, device=device)
-face_model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
-
-# Initialize YOLOv8 for action detection
-action_model = YOLO('yolo11s-pose.pt')
-
-# Load XGBoost model for classification
-xgb_model = xgb.Booster()
-xgb_model.load_model('Models/trained_model.json')
-
-# Path to store the embeddings of known faces
-EMBEDDINGS_FILE = 'Models/known_faces_embeddings.pkl'
-
-# Load known faces
-def load_known_faces():
-    if os.path.exists(EMBEDDINGS_FILE):
-        with open(EMBEDDINGS_FILE, 'rb') as f:
-            known_faces = pickle.load(f)
-            for face in known_faces:
-                face['embeddings'] = [np.array(embedding) for embedding in face['embeddings']]
-            return known_faces
-    return []
-
-# Compare embeddings using cosine similarity
-def get_cosine_similarity(embedding1, embedding2):
-    if embedding1.size == 0 or embedding2.size == 0:
-        return float('inf')
-    return 1 - cosine(embedding1.flatten(), embedding2.flatten())
-
+# Process video stream
 def generate_frames():
+    print("Generating")
     global suspicious_count, total_frames
     cap = cv2.VideoCapture(0)  # Webcam
     known_faces = load_known_faces()
@@ -181,97 +143,3 @@ def generate_frames():
 
     cap.release()
     cv2.destroyAllWindows()
-
-@app.route('/video_feed')
-def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/upload', methods=['POST'])
-def upload():
-    name = request.form['Name']
-    prisoner_number = request.form['PrisonerNumber']
-    age = request.form['Age']
-    height = request.form['Height']
-    weight = request.form['Weight']
-    gender = request.form['Gender']
-    images = request.files.getlist('FaceImages')
-
-    store_face_embeddings_from_images(images, prisoner_number)
-    
-    image_paths = []
-    for image in images:
-        if image:
-            # Convert image to JPEG format
-            img = PILImage.open(image)
-            img = img.convert("RGB")  # Ensure image is in RGB mode
-            filename = secure_filename(image.filename)
-            jpeg_filename = f"{os.path.splitext(filename)[0]}.jpeg"  # Change extension to .jpeg
-            image_path = os.path.join(app.config['IMAGE_FOLDER'], jpeg_filename)
-
-            # Save the image as JPEG
-            img.save(image_path, "JPEG")  # Save as JPEG
-            image_paths.append(f"Images/{jpeg_filename}")  # Store the path for MongoDB
-
-    user_data = {
-        "Name": name,
-        "PrisonerNumber": prisoner_number,
-        "Age": age,
-        "Height": height,
-        "Weight": weight,
-        "Gender": gender,
-        "ImagePaths": image_paths  # Store the list of image paths
-    }
-    mongo.db.users.insert_one(user_data)  # Insert user data into MongoDB
-
-    return jsonify({"message": "Embeddings stored successfully"}), 200
-
-@app.route('/images/<path:filename>', methods=['GET'])
-def serve_image(filename):
-    return send_from_directory(app.config['IMAGE_FOLDER'], filename)
-
-@app.route('/user/<prisoner_number>', methods=['GET'])
-def get_user(prisoner_number):
-    user = mongo.db.users.find_one({"PrisonerNumber": prisoner_number})
-    if user:
-        return jsonify({
-            "Name": user["Name"],
-            "PrisonerNumber": user["PrisonerNumber"],
-            "Age": user["Age"],
-            "Height": user["Height"],
-            "Weight": user["Weight"],
-            "Gender": user["Gender"],
-            "ImagePaths": user["ImagePaths"]  # Return the image paths
-        }), 200
-    else:
-        return jsonify({"message": "User  not found"}), 404
-
-def receive_frames(host='127.0.0.1', port=5001):
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((host, port))
-
-    try:
-        while True:
-            # Receive frame size
-            frame_size = int.from_bytes(client_socket.recv(4), byteorder='big')
-            # Receive frame data
-            frame_data = b''
-            while len(frame_data) < frame_size:
-                packet = client_socket.recv(frame_size - len(frame_data))
-                if not packet:
-                    break
-                frame_data += packet
-
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
-    finally:
-        client_socket.close()
-
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-if __name__ == '__main__':
-    if not os.path.exists(app.config['IMAGE_FOLDER']):
-        os.makedirs(app.config['IMAGE_FOLDER'])
-    app.run(port=5000)
