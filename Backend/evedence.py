@@ -1,8 +1,8 @@
 import time
+import threading
 from collections import deque
 import cv2
 import os
-import cv2
 import torch
 import pickle
 import pandas as pd
@@ -12,41 +12,50 @@ import xgboost as xgb
 from facenet_pytorch import MTCNN, InceptionResnetV1
 from scipy.spatial.distance import cosine
 from ultralytics import YOLO
-from flask import Flask, render_template, Response, request, jsonify, send_from_directory
-from store_embeddings_multiple import store_face_embeddings_from_images
+from flask import Flask, render_template, Response, request, jsonify
 from flask_cors import CORS
-from flask_pymongo import PyMongo
-from werkzeug.utils import secure_filename
-from PIL import Image as PILImage
-import socket
-# Store timestamps of frames to maintain a rolling 15-second window
-frame_timestamps = deque()
-suspicious_count = 0
-total_frames = 0
-ALERT_THRESHOLD = 0.7  # 70% threshold
-TIME_WINDOW = 15  # 15 seconds
+import pygame  # For audio handling
+import keyboard  # For keyboard input
+
+# ------------------ CONFIGURATION ------------------
 SAVE_PATH = "SuspiciousFrames"
+ALERT_SOUND = os.path.abspath("buzzer.mp3")  # Use absolute path
+ALERT_THRESHOLD = 0.7
+TIME_WINDOW = 15
 
-os.makedirs(SAVE_PATH, exist_ok=True)  # Ensure directory exists
+os.makedirs(SAVE_PATH, exist_ok=True)
 
+# ------------------ INITIALIZE PYGAME MIXER ------------------
+pygame.mixer.init()
+pygame.mixer.music.set_volume(0.5)
 
-# Initialize MTCNN for face detection
+# Verify audio file exists
+if not os.path.exists(ALERT_SOUND):
+    raise FileNotFoundError(f"Alert sound file not found at: {ALERT_SOUND}")
+
+# ------------------ DEVICE SETUP ------------------
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 mtcnn = MTCNN(keep_all=True, device=device)
 face_model = InceptionResnetV1(pretrained='vggface2').eval().to(device)
-
-# Initialize YOLOv8 for action detection
 action_model = YOLO('yolo11s-pose.pt')
 
-# Load XGBoost model for classification
+# Load XGBoost model
 xgb_model = xgb.Booster()
 xgb_model.load_model('Models/trained_model.json')
 
-# Path to store the embeddings of known faces
+# Load known face embeddings
 EMBEDDINGS_FILE = 'Models/known_faces_embeddings.pkl'
 
-# Load known faces
+# ------------------ GLOBAL VARIABLES ------------------
+frame_timestamps = deque()
+suspicious_count = 0
+total_frames = 0
+alert_active = False
+stop_alert = threading.Event()
+
+# ------------------ HELPER FUNCTIONS ------------------
 def load_known_faces():
+    """Load stored embeddings of known faces."""
     if os.path.exists(EMBEDDINGS_FILE):
         with open(EMBEDDINGS_FILE, 'rb') as f:
             known_faces = pickle.load(f)
@@ -55,30 +64,73 @@ def load_known_faces():
             return known_faces
     return []
 
-# Compare embeddings using cosine similarity
 def get_cosine_similarity(embedding1, embedding2):
+    """Compute cosine similarity between two embeddings."""
     if embedding1.size == 0 or embedding2.size == 0:
         return float('inf')
     return 1 - cosine(embedding1.flatten(), embedding2.flatten())
 
-# Process video stream
+def alert_controller():
+    """Control alert sound playback with stop capability."""
+    global alert_active
+    while not stop_alert.is_set():
+        alert_active = True
+        pygame.mixer.music.load(ALERT_SOUND)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy() and not stop_alert.is_set():
+            time.sleep(0.1)
+    alert_active = False
+
+def keyboard_listener():
+    """Listen for the 'j' key to stop the alert manually."""
+    global stop_alert
+    while True:
+        if keyboard.is_pressed('j'):
+            stop_alert.set()
+            pygame.mixer.music.stop()
+            break
+
+# ------------------ FLASK APP ------------------
+app = Flask(__name__)
+CORS(app)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_frames(), 
+                   mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/stop_alert', methods=['POST'])
+def stop_alert_route():
+    stop_alert.set()
+    pygame.mixer.music.stop()
+    return jsonify({"status": "Alert stopped"})
+
+# ------------------ VIDEO PROCESSING ------------------
 def generate_frames():
-    print("Generating")
-    global suspicious_count, total_frames
-    cap = cv2.VideoCapture(0)  # Webcam
+    global suspicious_count, total_frames, alert_active
+    cap = cv2.VideoCapture(0)
     known_faces = load_known_faces()
+    alert_thread = None
+
+    # Start the keyboard listener in a separate thread
+    keyboard_thread = threading.Thread(target=keyboard_listener)
+    keyboard_thread.start()
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
+        # ------------------ FACE RECOGNITION ------------------
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         boxes, _ = mtcnn.detect(frame_rgb)
 
-        # Face Recognition
         if boxes is not None:
-            faces = mtcnn(frame_rgb)
+            faces = mtcnn(frame_rgb)  # Detect faces
             for i, face in enumerate(faces):
                 embedding = face_model(face.unsqueeze(0))
                 matched = False
@@ -102,13 +154,13 @@ def generate_frames():
                 cv2.rectangle(frame, (int(boxes[i][0]), int(boxes[i][1])),
                               (int(boxes[i][2]), int(boxes[i][3])), (0, 255, 0), 2)
 
-        # Action Detection
+        # ------------------ ACTION DETECTION ------------------
         results = action_model(frame, verbose=False)
         annotated_frame = results[0].plot(boxes=False)
 
         frame_time = time.time()
         frame_timestamps.append(frame_time)
-        total_frames += 1  # Count total frames
+        total_frames += 1
 
         for r in results:
             bound_box = r.boxes.xyxy
@@ -123,55 +175,58 @@ def generate_frames():
                     keypoints_flat = {f'x{j}': keypoints[index][j][0] for j in range(len(keypoints[index]))}
                     keypoints_flat.update({f'y{j}': keypoints[index][j][1] for j in range(len(keypoints[index]))})
 
-                    # Ensure feature order matches model expectations
                     feature_order = ['x0', 'y0', 'x1', 'y1', 'x2', 'y2', 'x3', 'y3', 'x4', 'y4', 
-                                     'x5', 'y5', 'x6', 'y6', 'x7', 'y7', 'x8', 'y8', 'x9', 'y9', 
-                                     'x10', 'y10', 'x11', 'y11', 'x12', 'y12', 'x13', 'y13', 'x14', 'y14', 
-                                     'x15', 'y15', 'x16', 'y16']
+                                    'x5', 'y5', 'x6', 'y6', 'x7', 'y7', 'x8', 'y8', 'x9', 'y9', 
+                                    'x10', 'y10', 'x11', 'y11', 'x12', 'y12', 'x13', 'y13', 'x14', 'y14', 
+                                    'x15', 'y15', 'x16', 'y16']
                     
                     data = {key: keypoints_flat[key] for key in feature_order if key in keypoints_flat}
                     df = pd.DataFrame([data])
-
                     dmatrix = xgb.DMatrix(df)
 
-                    # Predict suspicious behavior
                     prediction = xgb_model.predict(dmatrix)
                     binary_prediction = int(prediction > 0.5)
 
-                    if binary_prediction == 1:  # Suspicious
+                    if binary_prediction == 1:
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                         cvzone.putTextRect(frame, "Suspicious", (x1, y1), 1, 1)
-                        suspicious_count += 1  # Increment suspicious frame count
-                    else:  # Normal
+                        suspicious_count += 1
+                    else:
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         cvzone.putTextRect(frame, "Normal", (x1, y1 + 50), 1, 1)
 
-        # Remove old frames from queue (older than 15 seconds)
+        # ------------------ ALERT MANAGEMENT ------------------
         while frame_timestamps and frame_timestamps[0] < frame_time - TIME_WINDOW:
             frame_timestamps.popleft()
-            total_frames -= 1  # Decrease total frame count accordingly
+            total_frames -= 1
 
-        # Calculate percentage of suspicious frames
-        if total_frames > 0:
-            suspicious_ratio = suspicious_count / total_frames
-        else:
-            suspicious_ratio = 0
+        suspicious_ratio = suspicious_count / total_frames if total_frames > 0 else 0
 
-        # If 70% of frames are suspicious, raise a flag and save frames
-        if suspicious_ratio >= ALERT_THRESHOLD:
-            cv2.putText(frame, "ALERT: Suspicious Activity Detected!", (50, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+        if suspicious_ratio >= ALERT_THRESHOLD and not alert_active:
+            stop_alert.clear()
+            alert_thread = threading.Thread(target=alert_controller)
+            alert_thread.start()
 
-            timestamp = int(time.time())
-            frame_filename = os.path.join(SAVE_PATH, f"suspicious_{timestamp}.jpg")
-            cv2.imwrite(frame_filename, frame)  # Save frame
+        if suspicious_ratio < ALERT_THRESHOLD and alert_active:
+            stop_alert.set()
 
-        # Convert frame for streaming
+        # Add alert status to frame
+        alert_text = "ALERT: Suspicious Activity Detected!" if alert_active else "Monitoring..."
+        alert_color = (0, 0, 255) if alert_active else (0, 255, 0)
+        cv2.putText(frame, alert_text, (10, 30), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
+
+        # Save frame if alert_active:
+        timestamp = int(time.time())
+        cv2.imwrite(os.path.join(SAVE_PATH, f"suspicious_{timestamp}.jpg"), frame)
+
+        # Stream the frame
         ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
-
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+               b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
 
     cap.release()
     cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    app.run(debug=False)
