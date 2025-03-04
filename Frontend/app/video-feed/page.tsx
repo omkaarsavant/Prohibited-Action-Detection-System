@@ -65,7 +65,7 @@ const video_feed = () => {
                                 <h5 className="mt-2">Profile Pictures:</h5>
                                 <div className="flex flex-wrap">
                                     {prisonerDetails.ImagePaths.map((path, index) => (
-                                        <img key={index} src={`http://127.0.0.1:5000/${path}`} alt={`Profile ${index + 1}`} className="w-24 h-24 object-cover rounded m-1" />
+                                        <img key={index} src={`http://127.0.0.1:5000/images/${path}`} alt={`Profile ${index + 1}`} className="w-24 h-24 object-cover rounded m-1" />
                                     ))}
                                 </div>
                             </div>
