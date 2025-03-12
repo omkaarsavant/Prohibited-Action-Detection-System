@@ -149,6 +149,8 @@ def get_cosine_similarity(embedding1, embedding2):
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+
+    
 @app.route('/upload', methods=['POST'])
 def upload():
     name = request.form['Name']
@@ -158,6 +160,10 @@ def upload():
     weight = request.form['Weight']
     gender = request.form['Gender']
     images = request.files.getlist('FaceImages')
+
+    # Create a folder for the prisoner inside the Images directory
+    prisoner_folder = os.path.join(app.config['IMAGE_FOLDER'], prisoner_number)
+    os.makedirs(prisoner_folder, exist_ok=True)
 
     store_face_embeddings_from_images(images, prisoner_number)
     
@@ -169,11 +175,11 @@ def upload():
             img = img.convert("RGB")  # Ensure image is in RGB mode
             filename = secure_filename(image.filename)
             jpeg_filename = f"{os.path.splitext(filename)[0]}.jpeg"  # Change extension to .jpeg
-            image_path = os.path.join(app.config['IMAGE_FOLDER'], jpeg_filename)
+            image_path = os.path.join(prisoner_folder, jpeg_filename)
 
             # Save the image as JPEG
             img.save(image_path, "JPEG")  # Save as JPEG
-            image_paths.append(f"Images/{jpeg_filename}")  # Store the path for MongoDB
+            image_paths.append(f"{prisoner_number}/{jpeg_filename}")  # Store the path for MongoDB
 
     user_data = {
         "Name": name,
@@ -187,6 +193,7 @@ def upload():
     mongo.db.users.insert_one(user_data)  # Insert user data into MongoDB
 
     return jsonify({"message": "Embeddings stored successfully"}), 200
+
 
 @app.route('/images/<path:filename>', methods=['GET'])
 def serve_image(filename):
