@@ -217,6 +217,7 @@ def generate_frames():
         if suspicious_ratio < ALERT_THRESHOLD and alert_active:
             stop_alert.set()
 
+
         # Reset manual_stop flag when no suspicious activity is detected
         if suspicious_ratio < ALERT_THRESHOLD:
             manual_stop = False
@@ -227,6 +228,13 @@ def generate_frames():
             alert_color = (0, 0, 255)
             cv2.putText(frame, alert_text, (10, 30), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
+
+        # # Add alert status to frame
+         alert_text = "ALERT: Suspicious Activity Detected!" if alert_active else "Monitoring..."
+         alert_color = (0, 0, 255) if alert_active else (0, 255, 0)
+         cv2.putText(frame, alert_text, (10, 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
+
 
         # Save frame if alert_active:
         if alert_active:

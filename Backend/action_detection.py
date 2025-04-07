@@ -249,7 +249,7 @@ def detect_shoplifting(video_path=None):
 
     # Load the trained XGBoost model (replace with the actual path to your XGBoost model)
     model = xgb.Booster()
-    model.load_model('Models/trained_model.json')
+    model.load_model('Models/trained_model_old.json')
 
     # Open the video
     cap = cv2.VideoCapture(0)  # Use index 1 for external camera
@@ -315,7 +315,7 @@ def detect_shoplifting(video_path=None):
                     print(f'Prediction: {binary_predictions}')
 
                     # Annotate the frame based on prediction (0 = Suspicious, 1 = Normal)
-                    if binary_predictions == 0:  # Suspicious
+                    if binary_predictions == 1:  # Suspicious
                         cv2.rectangle(annotated_frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
                         cvzone.putTextRect(annotated_frame, f"{'Suspicious'}", (int(x1), (int(y1))), 1, 1)
                     else:  # Normal

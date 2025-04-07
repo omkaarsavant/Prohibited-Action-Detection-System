@@ -6,6 +6,15 @@
 venv/
 .env
 
+# Ignore image files in Backend/SuspiciousFrames
+Backend/SuspiciousFrames/*.jpg
+Backend/SuspiciousFrames/*.jpeg
+Backend/SuspiciousFrames/*.png
+Backend/SuspiciousFrames/*.gif
+Backend/SuspiciousFrames/*.bmp
+Backend/SuspiciousFrames/*.webp
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
