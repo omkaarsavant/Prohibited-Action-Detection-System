@@ -51,6 +51,7 @@ frame_timestamps = deque()
 suspicious_count = 0
 total_frames = 0
 alert_active = False
+manual_stop = False  # New flag to track manual stop
 stop_alert = threading.Event()
 
 # ------------------ HELPER FUNCTIONS ------------------
@@ -72,22 +73,28 @@ def get_cosine_similarity(embedding1, embedding2):
 
 def alert_controller():
     """Control alert sound playback with stop capability."""
-    global alert_active
+    global alert_active, manual_stop
     while not stop_alert.is_set():
+        if manual_stop:  # Exit if manually stopped
+            break
         alert_active = True
         pygame.mixer.music.load(ALERT_SOUND)
         pygame.mixer.music.play()
         while pygame.mixer.music.get_busy() and not stop_alert.is_set():
             time.sleep(0.1)
+    pygame.mixer.music.stop()  # Ensure the music stops when the alert is cleared
     alert_active = False
 
 def keyboard_listener():
-    """Listen for the 'j' key to stop the alert manually."""
-    global stop_alert
+    """Listen for the 'J' key to stop the alert manually."""
+    global manual_stop, alert_active, suspicious_count, total_frames
     while True:
         if keyboard.is_pressed('j'):
-            stop_alert.set()
-            pygame.mixer.music.stop()
+            stop_alert.set()  # Signal to stop the alert
+            manual_stop = True  # Set manual stop flag
+            alert_active = False  # Reset alert state
+            suspicious_count = 0  # Reset suspicious count
+            total_frames = 0  # Reset total frames
             break
 
 # ------------------ FLASK APP ------------------
@@ -111,13 +118,13 @@ def stop_alert_route():
 
 # ------------------ VIDEO PROCESSING ------------------
 def generate_frames():
-    global suspicious_count, total_frames, alert_active
+    global suspicious_count, total_frames, alert_active, manual_stop
     cap = cv2.VideoCapture(0)
     known_faces = load_known_faces()
     alert_thread = None
 
     # Start the keyboard listener in a separate thread
-    keyboard_thread = threading.Thread(target=keyboard_listener)
+    keyboard_thread = threading.Thread(target=keyboard_listener, daemon=True)
     keyboard_thread.start()
 
     while True:
@@ -187,7 +194,7 @@ def generate_frames():
                     prediction = xgb_model.predict(dmatrix)
                     binary_prediction = int(prediction > 0.5)
 
-                    if binary_prediction == 1:
+                    if binary_prediction == 0:
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                         cvzone.putTextRect(frame, "Suspicious", (x1, y1), 1, 1)
                         suspicious_count += 1
@@ -202,7 +209,7 @@ def generate_frames():
 
         suspicious_ratio = suspicious_count / total_frames if total_frames > 0 else 0
 
-        if suspicious_ratio >= ALERT_THRESHOLD and not alert_active:
+        if suspicious_ratio >= ALERT_THRESHOLD and not alert_active and not manual_stop:
             stop_alert.clear()
             alert_thread = threading.Thread(target=alert_controller)
             alert_thread.start()
@@ -210,15 +217,21 @@ def generate_frames():
         if suspicious_ratio < ALERT_THRESHOLD and alert_active:
             stop_alert.set()
 
-        # Add alert status to frame
-        alert_text = "ALERT: Suspicious Activity Detected!" if alert_active else "Monitoring..."
-        alert_color = (0, 0, 255) if alert_active else (0, 255, 0)
-        cv2.putText(frame, alert_text, (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
+        # Reset manual_stop flag when no suspicious activity is detected
+        if suspicious_ratio < ALERT_THRESHOLD:
+            manual_stop = False
+
+        # Add alert status to frame only if alert is active
+        if alert_active and not manual_stop:
+            alert_text = "ALERT: Suspicious Activity Detected!"
+            alert_color = (0, 0, 255)
+            cv2.putText(frame, alert_text, (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
 
         # Save frame if alert_active:
-        timestamp = int(time.time())
-        cv2.imwrite(os.path.join(SAVE_PATH, f"suspicious_{timestamp}.jpg"), frame)
+        if alert_active:
+            timestamp = int(time.time())
+            cv2.imwrite(os.path.join(SAVE_PATH, f"suspicious_{timestamp}.jpg"), frame)
 
         # Stream the frame
         ret, buffer = cv2.imencode('.jpg', frame)
