@@ -187,7 +187,7 @@ def generate_frames():
                     prediction = xgb_model.predict(dmatrix)
                     binary_prediction = int(prediction > 0.5)
 
-                    if binary_prediction == 1:
+                    if binary_prediction == 0:
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                         cvzone.putTextRect(frame, "Suspicious", (x1, y1), 1, 1)
                         suspicious_count += 1
@@ -210,11 +210,11 @@ def generate_frames():
         if suspicious_ratio < ALERT_THRESHOLD and alert_active:
             stop_alert.set()
 
-        # Add alert status to frame
-        alert_text = "ALERT: Suspicious Activity Detected!" if alert_active else "Monitoring..."
-        alert_color = (0, 0, 255) if alert_active else (0, 255, 0)
-        cv2.putText(frame, alert_text, (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
+        # # Add alert status to frame
+        # alert_text = "ALERT: Suspicious Activity Detected!" if alert_active else "Monitoring..."
+        # alert_color = (0, 0, 255) if alert_active else (0, 255, 0)
+        # cv2.putText(frame, alert_text, (10, 30), 
+        #            cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
 
         # Save frame if alert_active:
         timestamp = int(time.time())
