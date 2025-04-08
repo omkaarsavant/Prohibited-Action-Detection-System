@@ -174,13 +174,19 @@ export function RegistrationForm() {
 
   useEffect(() => {
     if (showCamera) {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        })
-        .catch(err => console.error(err));
+      if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => {
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+            }
+          })
+          .catch(err => console.error("Error accessing the camera:", err));
+      } else {
+        console.error("Camera access is not supported in this environment.");
+        alert("Camera access is not supported in your browser.");
+        setShowCamera(false);
+      }
     }
 
     return () => {
