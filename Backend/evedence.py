@@ -95,7 +95,8 @@ def keyboard_listener():
             alert_active = False  # Reset alert state
             suspicious_count = 0  # Reset suspicious count
             total_frames = 0  # Reset total frames
-            break
+            # Add a short delay to avoid multiple triggers
+            time.sleep(0.2)
 
 # ------------------ FLASK APP ------------------
 app = Flask(__name__)
@@ -209,8 +210,10 @@ def generate_frames():
 
         suspicious_ratio = suspicious_count / total_frames if total_frames > 0 else 0
 
+        # --- FIX: Reset stop_alert and manual_stop before starting a new alert ---
         if suspicious_ratio >= ALERT_THRESHOLD and not alert_active and not manual_stop:
-            stop_alert.clear()
+            stop_alert.clear()      # <-- Add this line
+            manual_stop = False     # <-- Add this line
             alert_thread = threading.Thread(target=alert_controller)
             alert_thread.start()
 
@@ -224,10 +227,10 @@ def generate_frames():
 
         # Add alert status to frame only if alert is active
         if alert_active and not manual_stop:
-            alert_text = "ALERT: Suspicious Activity Detected!"
+            alert_text = "Suspicious Activity Detected"
             alert_color = (0, 0, 255)
             cv2.putText(frame, alert_text, (10, 30), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, alert_color, 3)
 
         # # Add alert status to frame
          alert_text = "ALERT: Suspicious Activity Detected!" if alert_active else "Monitoring..."
